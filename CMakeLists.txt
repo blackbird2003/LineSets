@@ -23,6 +23,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(LineSets
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        spline/Bezier.cpp spline/Bezier.h spline/BSpline.cpp spline/BSpline.h spline/CatmullRom.cpp spline/CatmullRom.h spline/Curve.cpp spline/Curve.h spline/Vector.cpp spline/Vector.h
+
+
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET LineSets APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

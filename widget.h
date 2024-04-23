@@ -17,6 +17,15 @@ class Widget;
 }
 QT_END_NAMESPACE
 
+class Line {
+public:
+    std::vector<QPoint> point; // 记录鼠标点击的位置
+    QColor color;
+    Line() {
+        color = QColor(rand() % 256, rand() % 256, rand() % 256);
+    }
+};
+
 class Widget : public QWidget
 {
     Q_OBJECT
@@ -27,17 +36,16 @@ public:
 
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event); // 处理鼠标点击事件
-    void drawBezierCurve(std::vector<QPoint> &Line);
+    void drawBezierCurve(Line &line);
 
 private slots:
-    void on_pushButton_clicked();
+    void on_bthNewLine_clicked();
+
+    void on_btnClear_clicked();
 
 private:
     Ui::Widget *ui;
-
-    std::vector<std::vector<QPoint>> Lines; // 记录鼠标点击的位置
-
-
+    std::vector<Line> lines;
 };
 
 
