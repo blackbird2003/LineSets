@@ -13,31 +13,52 @@
   <property name="windowTitle">
    <string>Widget</string>
   </property>
-  <widget class="QPushButton" name="btnNewLine">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
-     <x>50</x>
-     <y>60</y>
-     <width>80</width>
-     <height>18</height>
+     <x>20</x>
+     <y>20</y>
+     <width>82</width>
+     <height>141</height>
     </rect>
    </property>
-   <property name="text">
-    <string>New Line</string>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="btnClear">
-   <property name="geometry">
-    <rect>
-     <x>50</x>
-     <y>100</y>
-     <width>80</width>
-     <height>18</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Clear</string>
-   </property>
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QPushButton" name="btnNewLine">
+      <property name="text">
+       <string>New Line</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="btnClear">
+      <property name="text">
+       <string>Clear</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="btnRandom">
+      <property name="text">
+       <string>Random Line</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="bthSortCurrent">
+      <property name="text">
+       <string>Sort Current</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="bthSortAll">
+      <property name="text">
+       <string>Sort All</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
   </widget>
  </widget>
  <resources/>

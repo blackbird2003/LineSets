@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QMouseEvent>
+#include <QRandomGenerator>
 
 
 
@@ -17,10 +18,22 @@ class Widget;
 }
 QT_END_NAMESPACE
 
+
+
+
 class Line {
 public:
     std::vector<QPoint> point; // 记录鼠标点击的位置
     QColor color;
+    double length() {
+        if (point.size() < 2) return 0;
+        double res = 0;
+        for (int i = 1; i < point.size(); i++) {
+            QPoint t = point[i] - point[i - 1];
+            res += sqrt(QPointF::dotProduct(t, t));
+        }
+        return res;
+    }
     Line() {
         color = QColor(rand() % 256, rand() % 256, rand() % 256);
     }
@@ -38,10 +51,19 @@ public:
     void mousePressEvent(QMouseEvent *event); // 处理鼠标点击事件
     void drawBezierCurve(Line &line);
 
+    QPoint generateRandomPoint();
+    void sortByTSP(std::vector<QPoint> &point);
+
 private slots:
-    void on_bthNewLine_clicked();
+    void on_btnNewLine_clicked();
 
     void on_btnClear_clicked();
+
+    void on_btnRandom_clicked();
+
+    void on_bthSortCurrent_clicked();
+
+    void on_bthSortAll_clicked();
 
 private:
     Ui::Widget *ui;
