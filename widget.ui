@@ -58,6 +58,13 @@
       </property>
      </widget>
     </item>
+    <item>
+     <widget class="QPushButton" name="bthIntersected">
+      <property name="text">
+       <string>Intersected</string>
+      </property>
+     </widget>
+    </item>
    </layout>
   </widget>
  </widget>

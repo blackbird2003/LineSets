@@ -2,6 +2,13 @@
 #include "./ui_widget.h"
 
 
+double dis(QPoint a, QPoint b) {
+    QPoint t = a - b;
+    return sqrt(QPointF::dotProduct(t, t));
+}
+
+
+bool intersected_clicked = false;
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
@@ -21,29 +28,39 @@ Widget::~Widget()
 }
 
 
-void Widget::drawBezierCurve(Line &line) {
-    if (line.point.empty()) return;
 
+QPainterPath generatePath(std::vector<QPoint> point) {
+    if (point.empty()) return QPainterPath();
 
-    QPainterPath path(line.point[0]);
+    QPainterPath path(point[0]);
     QPointF sp, ep, c1, c2;
-    for (int i = 0; i < line.point.size() - 1; ++i) {
-        // 控制点的 x 坐标为 sp 与 ep 的 x 坐标和的一半
-        // 第一个控制点 c1 的 y 坐标为起始点 sp 的 y 坐标
-        // 第二个控制点 c2 的 y 坐标为结束点 ep 的 y 坐标
-        QPointF sp = line.point[i];
-        QPointF ep = line.point[i+1];
+    for (int i = 0; i < point.size() - 1; ++i) {
+        QPointF sp = point[i];
+        QPointF ep = point[i+1];
+        //QPainterPath p1(line.point[i]), p2(line.point[i]);
         if (i == 0) {
             c1 = QPointF((sp.x() + ep.x()) / 2, sp.y());
             c2 = QPointF((sp.x() + ep.x()) / 2, ep.y());
+            //p1.cubicTo(c1, c2, ep); p2 = p1;
         } else {
-            c1 = line.point[i] + (line.point[i] - c2);
+            c1 = point[i] + (point[i] - c2);
             // QPointF mid = (line.point[i] + line.point[i + 1]) / 2;
             // c2 = mid + (mid - c1);
+
             c2 = QPointF((sp.x() + ep.x()) / 2, ep.y());
+            // p1.cubicTo(c1, c2, ep);
+            // c2 = QPointF((sp.x() + ep.x()) / 2, sp.y());
+            // p2.cubicTo(c1, c2, ep);
         }
         path.cubicTo(c1, c2, ep);
     }
+    return path;
+}
+
+void Widget::drawBezierCurve(Line &line) {
+    if (line.point.empty()) return;
+
+    QPainterPath path = generatePath(line.point);
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
@@ -53,10 +70,12 @@ void Widget::drawBezierCurve(Line &line) {
     //painter.translate(40, 130);
     painter.drawPath(path);
 
+
     // 绘制曲线上的点
     painter.setBrush(Qt::gray);
     for (int i = 0; i < line.point.size(); ++i) {
-        painter.drawEllipse(line.point[i], 4, 4);
+        if (i == 0) painter.drawEllipse(line.point[i], 6, 6);
+        else painter.drawEllipse(line.point[i], 4, 4);
     }
 }
 
@@ -70,6 +89,27 @@ void Widget::paintEvent(QPaintEvent *event)
 
     for (auto &line : lines) {
         drawBezierCurve(line);
+    }
+
+    QPainter painter(this);
+    if (intersected_clicked) {
+        for (auto line1 : lines) {
+            for (auto line2 : lines) {
+                if (line1.color == line2.color) continue;
+                QPainterPath path1 = generatePath(line1.point);
+                QPainterPath path2 = generatePath(line2.point);
+
+                QPainterPath path_intersected = path1.intersected(path2);
+
+
+                painter.setRenderHint(QPainter::Antialiasing, true);
+                painter.setPen(QPen(QColor(255, 0, 0), 2));
+
+                // 绘制 path
+                //painter.translate(40, 130);
+                painter.drawPath(path_intersected);
+            }
+        }
     }
     //qDebug() << "line number:" << lines.size() << "\n";
 
@@ -124,12 +164,12 @@ void Widget::on_btnRandom_clicked()
 QPoint Widget::generateRandomPoint()
 {
 
-    int width = this->width();
-    int height = this->height();
+    int width = this->width() - 100;
+    int height = this->height() - 100;
 
     // 生成随机的x和y坐标
-    int x = QRandomGenerator::global()->bounded(width);
-    int y = QRandomGenerator::global()->bounded(height);
+    int x = QRandomGenerator::global()->bounded(width) + 50;
+    int y = QRandomGenerator::global()->bounded(height) + 50;
 
     qDebug() << x << " " << y << Qt::endl;
 
@@ -146,10 +186,7 @@ struct DP {
 
 DP f[1 << 21][21];
 
-double dis(QPoint a, QPoint b) {
-    QPoint t = a - b;
-    return sqrt(QPointF::dotProduct(t, t));
-}
+
 int lowbit(int i) { return i & -i; }
 void Widget::sortByTSP(std::vector<QPoint> &point) {
     int n = point.size();
@@ -207,9 +244,17 @@ void Widget::sortByTSP(std::vector<QPoint> &point) {
         res.push_back(point[path[i]]);
     }
 
+
     assert(point.size() == n);
     qDebug() << "point size: " << point.size() << "\n";
     point = res;
+
+    QPainterPath path1 = generatePath(point);
+    auto rpoint = point;
+    std::reverse(rpoint.begin(), rpoint.end());
+    QPainterPath path2 = generatePath(point);
+
+    if (path2.length() < path1.length()) point = rpoint;
 
     // Bruteforce:
 
@@ -254,5 +299,12 @@ void Widget::on_bthSortAll_clicked()
         update();
         qDebug() << "OK " << ++cnt << "\n";
     }
+}
+
+
+void Widget::on_bthIntersected_clicked()
+{
+    intersected_clicked = 1;
+    qDebug() << "intersected_clicked\n";
 }
 

@@ -65,6 +65,8 @@ private slots:
 
     void on_bthSortAll_clicked();
 
+    void on_bthIntersected_clicked();
+
 private:
     Ui::Widget *ui;
     std::vector<Line> lines;
