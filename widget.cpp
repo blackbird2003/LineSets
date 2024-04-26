@@ -9,6 +9,7 @@ double dis(QPoint a, QPoint b) {
 
 
 bool intersected_clicked = false;
+bool boundingBox_clicked = false;
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
@@ -43,7 +44,9 @@ QPainterPath generatePath(std::vector<QPoint> point) {
             c2 = QPointF((sp.x() + ep.x()) / 2, ep.y());
             //p1.cubicTo(c1, c2, ep); p2 = p1;
         } else {
-            c1 = point[i] + (point[i] - c2);
+            auto veclength = dis(c1.toPoint(), point[i]);
+            auto midlength = dis(point[i], point[i + 1]) / 2;
+            c1 = point[i] + (point[i] - c1) * midlength / veclength;
             // QPointF mid = (line.point[i] + line.point[i + 1]) / 2;
             // c2 = mid + (mid - c1);
 
@@ -52,7 +55,8 @@ QPainterPath generatePath(std::vector<QPoint> point) {
             // c2 = QPointF((sp.x() + ep.x()) / 2, sp.y());
             // p2.cubicTo(c1, c2, ep);
         }
-        path.cubicTo(c1, c2, ep);
+        //path.cubicTo(c1, c2, ep);
+        path.quadTo(c1, ep);
     }
     return path;
 }
@@ -111,6 +115,22 @@ void Widget::paintEvent(QPaintEvent *event)
             }
         }
     }
+
+    if (boundingBox_clicked) {
+        for (auto &line : lines) {
+            QRectF boundingBox = generatePath(line.point).boundingRect();
+            QPainterPath path;
+            path.addRect(boundingBox);
+            painter.setRenderHint(QPainter::Antialiasing, true);
+            painter.setPen(QPen(QColor(0, 0, 255), 2));
+
+            // 绘制 path
+            //painter.translate(40, 130);
+            painter.drawPath(path);
+        }
+    }
+
+    ui->labelLineNumber->setText("Line number:" + QString(QString::number((int)lines.size())));
     //qDebug() << "line number:" << lines.size() << "\n";
 
 }
@@ -304,7 +324,22 @@ void Widget::on_bthSortAll_clicked()
 
 void Widget::on_bthIntersected_clicked()
 {
-    intersected_clicked = 1;
+    intersected_clicked = !intersected_clicked;
     qDebug() << "intersected_clicked\n";
+    update();
+}
+
+
+void Widget::on_labelLineNumber_linkActivated(const QString &link)
+{
+    ui->labelLineNumber->setText("Line number:" + QString(QString::number((int)lines.size())));
+}
+
+
+void Widget::on_btnBoundingBox_clicked()
+{
+    boundingBox_clicked = !boundingBox_clicked;
+    qDebug() << "boundingBox_clicked\n";
+    update();
 }
 

@@ -16,10 +16,10 @@
   <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>20</y>
-     <width>82</width>
-     <height>141</height>
+     <x>10</x>
+     <y>10</y>
+     <width>91</width>
+     <height>231</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -62,6 +62,20 @@
      <widget class="QPushButton" name="bthIntersected">
       <property name="text">
        <string>Intersected</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="btnBoundingBox">
+      <property name="text">
+       <string>Bounding Box</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="labelLineNumber">
+      <property name="text">
+       <string>Line Number:</string>
       </property>
      </widget>
     </item>

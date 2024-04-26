@@ -67,6 +67,10 @@ private slots:
 
     void on_bthIntersected_clicked();
 
+    void on_labelLineNumber_linkActivated(const QString &link);
+
+    void on_btnBoundingBox_clicked();
+
 private:
     Ui::Widget *ui;
     std::vector<Line> lines;
