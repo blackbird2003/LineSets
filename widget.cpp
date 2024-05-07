@@ -10,6 +10,8 @@ double dis(QPoint a, QPoint b) {
 
 bool intersected_clicked = false;
 bool boundingBox_clicked = false;
+bool largeAngle_clicked = false;
+bool test_clicked = false;
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
@@ -27,6 +29,8 @@ Widget::~Widget()
 {
     delete ui;
 }
+
+
 
 
 
@@ -61,10 +65,84 @@ QPainterPath generatePath(std::vector<QPoint> point) {
     return path;
 }
 
-void Widget::drawBezierCurve(Line &line) {
+
+QPoint getIntersection(QPointF posA, QPointF posB, QPointF posC, QPointF posD)//返回AB与CD交点，无交点返回（0,0）
+{
+    QLineF line1(posA, posB);
+    QLineF line2(posC, posD);
+    QPointF interPos(0,0);
+    QLineF::IntersectType type = line1.intersects(line2, &interPos);
+    if (type != QLineF::BoundedIntersection)
+        interPos = QPointF(1e9, 1e9);
+    QPoint res = QPoint(interPos.x(), interPos.y());
+    return res;
+}
+
+std::vector<std::pair<QPoint, QPoint>> drawn_segment;
+
+float length(QPointF a) {
+    return sqrt(QPointF::dotProduct(a, a));
+}
+float angle(QPoint A, QPoint O, QPoint B) {
+    auto OA = (A - O).toPointF(), OB = (B - O).toPointF();
+    auto cosAOB =  QPointF::dotProduct(OA, OB) / (length(OA) * length(OB));
+    return acos(cosAOB);
+}
+
+
+float crossProduct(QPoint A, QPoint B) {
+    return A.x() * B.y() - B.x() * A.y();
+}
+
+void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
+    auto line = lines[line_id];
     if (line.point.empty()) return;
 
-    QPainterPath path = generatePath(line.point);
+    //24 05 06 add invisable points
+    auto pt = line.point;
+
+    if (largeAngle_clicked) {
+        for (int i = 1; i < pt.size(); i++) {
+            auto s1 = pt[i - 1], e1 = pt[i];
+            bool flag = false;
+            for (auto [s2, e2] : drawn_segment) {
+                auto inter = getIntersection(s1, e1, s2, e2);
+                if (inter.x() > 1e6) continue;
+                else {
+                    if (std::min(angle(s1, inter, s2), angle(s1, inter, e2)) < 3.14159 / 4) {
+                        auto u = (s2 - inter);
+                        auto v1 = QPoint(u.y(), -u.x()), v2 = -v1;
+
+                        if (crossProduct(v1, s2 - inter) * crossProduct(s1 - inter, s2 - inter) < 0) {
+                            std::swap(v1, v2);
+                        }
+                        if (test_clicked) {
+                            auto p1 = inter + v1 * (length(s1 - e1) / 6 /length(v1));
+                            auto p2 = inter + v2 * (length(s1 - e1)/ 6 / length(v2));
+                            pt.insert(pt.begin() + i, p1); drawn_segment.push_back({pt[i - 1], pt[i]});
+                            pt.insert(pt.begin() + i + 1, p2); drawn_segment.push_back({pt[i], pt[i + 1]});
+                            drawn_segment.push_back({pt[i + 1], pt[i + 2]});
+                            i += 2;
+                        } else {
+                            auto p1 = inter + v1 * (length(s1 - inter) / 2 /length(v1));
+                            auto p2 = inter + v2 * (length(e1 - inter)/ 2 / length(v2));
+                            pt.insert(pt.begin() + i, p1); drawn_segment.push_back({pt[i - 1], pt[i]});
+                            pt.insert(pt.begin() + i + 1, inter); drawn_segment.push_back({pt[i], pt[i + 1]});
+                            pt.insert(pt.begin() + i + 2, p2); drawn_segment.push_back({pt[i + 1], pt[i + 2]});
+                            drawn_segment.push_back({pt[i + 2], pt[i + 3]});
+                            i += 3;
+                        }
+                        flag = true;
+                        qDebug() << "OK\n";
+                        break;
+                    }
+                }
+            }
+            if (!flag) drawn_segment.push_back({pt[i - 1], pt[i]});
+        }
+
+    }
+    QPainterPath path = generatePath(/*line.point*/ pt);
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
@@ -75,7 +153,13 @@ void Widget::drawBezierCurve(Line &line) {
     painter.drawPath(path);
 
 
-    // 绘制曲线上的点
+    // 绘制曲线上的可见点
+    painter.setBrush(Qt::red);
+    for (auto p : pt) {
+        painter.drawEllipse(p, 4, 4);
+    }
+
+    // 绘制曲线上的可见点
     painter.setBrush(Qt::gray);
     for (int i = 0; i < line.point.size(); ++i) {
         if (i == 0) painter.drawEllipse(line.point[i], 6, 6);
@@ -91,8 +175,9 @@ void Widget::paintEvent(QPaintEvent *event)
     // painter.setPen(QPen(Qt::black, 2));
 
 
-    for (auto &line : lines) {
-        drawBezierCurve(line);
+    drawn_segment.clear();
+    for (int i = 0; i < lines.size(); i++) {
+        drawBezierCurve(i);
     }
 
     QPainter painter(this);
@@ -340,6 +425,22 @@ void Widget::on_btnBoundingBox_clicked()
 {
     boundingBox_clicked = !boundingBox_clicked;
     qDebug() << "boundingBox_clicked\n";
+    update();
+}
+
+
+void Widget::on_bthLargeAngle_clicked()
+{
+    largeAngle_clicked = !largeAngle_clicked;
+    qDebug() << "largeAngle_clicked\n";
+    update();
+}
+
+
+void Widget::on_bthTest_clicked()
+{
+    test_clicked = !test_clicked;
+    qDebug() << "test_clicked is" << (test_clicked ? "on\n" : "off\n");
     update();
 }
 

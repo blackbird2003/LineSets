@@ -73,6 +73,20 @@
      </widget>
     </item>
     <item>
+     <widget class="QPushButton" name="bthLargeAngle">
+      <property name="text">
+       <string>Large Angle</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="bthTest">
+      <property name="text">
+       <string>test</string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QLabel" name="labelLineNumber">
       <property name="text">
        <string>Line Number:</string>

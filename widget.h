@@ -49,7 +49,7 @@ public:
 
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event); // 处理鼠标点击事件
-    void drawBezierCurve(Line &line);
+    void drawBezierCurve(int line_id);
 
     QPoint generateRandomPoint();
     void sortByTSP(std::vector<QPoint> &point);
@@ -70,6 +70,10 @@ private slots:
     void on_labelLineNumber_linkActivated(const QString &link);
 
     void on_btnBoundingBox_clicked();
+
+    void on_bthLargeAngle_clicked();
+
+    void on_bthTest_clicked();
 
 private:
     Ui::Widget *ui;
