@@ -44,8 +44,8 @@ QPainterPath generatePath(std::vector<QPoint> point) {
         QPointF ep = point[i+1];
         //QPainterPath p1(line.point[i]), p2(line.point[i]);
         if (i == 0) {
-            c1 = QPointF((sp.x() + ep.x()) / 2, sp.y());
-            c2 = QPointF((sp.x() + ep.x()) / 2, ep.y());
+            c1 = QPointF((sp.x() + ep.x()) / 2, (sp.y() + ep.y()) / 2);
+            //c2 = QPointF((sp.x() + ep.x()) / 2, ep.y());
             //p1.cubicTo(c1, c2, ep); p2 = p1;
         } else {
             auto veclength = dis(c1.toPoint(), point[i]);
@@ -117,8 +117,8 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
                             std::swap(v1, v2);
                         }
                         if (test_clicked) {
-                            auto p1 = inter + v1 * (length(s1 - e1) / 6 /length(v1));
-                            auto p2 = inter + v2 * (length(s1 - e1)/ 6 / length(v2));
+                            auto p1 = inter + v1 * (length(s1 - e1) / 12 /length(v1));
+                            auto p2 = inter + v2 * (length(s1 - e1)/ 12 / length(v2));
                             pt.insert(pt.begin() + i, p1); drawn_segment.push_back({pt[i - 1], pt[i]});
                             pt.insert(pt.begin() + i + 1, p2); drawn_segment.push_back({pt[i], pt[i + 1]});
                             drawn_segment.push_back({pt[i + 1], pt[i + 2]});
@@ -289,7 +289,9 @@ struct DP {
     }
 };
 
-DP f[1 << 21][21];
+
+const int maxn = 25;
+DP f[1 << maxn][maxn];
 
 
 int lowbit(int i) { return i & -i; }

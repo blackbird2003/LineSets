@@ -35,7 +35,7 @@ public:
         return res;
     }
     Line() {
-        color = QColor(rand() % 256, rand() % 256, rand() % 256);
+        color = QColor(128 + rand() % 128, 128 + rand() % 128, 128 + rand() % 128);
     }
 };
 
