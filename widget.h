@@ -25,6 +25,7 @@ class Line {
 public:
     std::vector<QPoint> point; // 记录鼠标点击的位置
     QColor color;
+    QPainterPath path;
     double length() {
         if (point.size() < 2) return 0;
         double res = 0;
