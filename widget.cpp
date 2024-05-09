@@ -1,6 +1,6 @@
 #include "widget.h"
 #include "./ui_widget.h"
-
+#include "solveTSP.h"
 
 double dis(QPoint a, QPoint b) {
     QPoint t = a - b;
@@ -44,7 +44,7 @@ QPainterPath generatePath(std::vector<QPoint> point) {
         QPointF ep = point[i+1];
         //QPainterPath p1(line.point[i]), p2(line.point[i]);
         if (i == 0) {
-            c1 = QPointF((sp.x() + ep.x()) / 2, (sp.y() + ep.y()) / 2);
+            c1 = QPointF((sp.x() + ep.x()) / 2, /*(sp.y() + ep.y()) / 2*/ ep.y());
             //c2 = QPointF((sp.x() + ep.x()) / 2, ep.y());
             //p1.cubicTo(c1, c2, ep); p2 = p1;
         } else {
@@ -94,14 +94,15 @@ float crossProduct(QPointF A, QPointF B) {
 }
 
 const int segnum = 40;
+std::vector<QPoint> pt, tmp, inters;
 void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
     auto line = lines[line_id];
     if (line.point.empty()) return;
 
     //24 05 06 add invisable points
-    auto pt = line.point;
-    auto tmp = pt;
-    auto inters = pt; inters.clear();
+    pt = line.point;
+    tmp = pt;
+    inters.clear();
     if (largeAngle_clicked) {
         //24 05 07 switch to piecewise linearity
         QPainterPath path = generatePath(line.point);
@@ -193,7 +194,7 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
     //painter.translate(40, 130);
 
     QPainterPath path;
-    if (test_clicked) {
+    if (largeAngle_clicked) {
         sortByTSP(pt);
         path = generatePath(/*line.point*/ pt);
         lines[line_id].path = path;
@@ -206,23 +207,27 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
 
 
 
-    // 绘制曲线上的分段点
-    painter.setBrush(Qt::blue);
-    for (auto p : tmp) {
-        painter.drawEllipse(p, 4, 4);
+
+    if (test_clicked) {
+        // 绘制曲线上的分段点
+        painter.setBrush(Qt::blue);
+        for (auto p : tmp) {
+            painter.drawEllipse(p, 4, 4);
+        }
+
+        // 绘制曲线上的交叉点
+        painter.setBrush(Qt::green);
+        for (auto p : inters) {
+            painter.drawEllipse(p, 4, 4);
+        }
+
+        // 绘制pt上的所有点
+        painter.setBrush(Qt::red);
+        for (auto p : pt) {
+            painter.drawEllipse(p, 4, 4);
+        }
     }
 
-    // 绘制曲线上的交叉点
-    painter.setBrush(Qt::green);
-    for (auto p : inters) {
-        painter.drawEllipse(p, 4, 4);
-    }
-
-    // 绘制pt上的所有点
-    painter.setBrush(Qt::red);
-    for (auto p : pt) {
-        painter.drawEllipse(p, 4, 4);
-    }
 
     // 绘制曲线上的可见点
 
@@ -326,7 +331,7 @@ void Widget::on_btnClear_clicked()
 void Widget::on_btnRandom_clicked()
 {
     //lines.clear();
-    int pointNumber = 7;
+    int pointNumber = 5;
     Line l;
     for (int i = 0; i < pointNumber; i++) {
         l.point.push_back(generateRandomPoint());
@@ -369,52 +374,51 @@ void Widget::sortByTSP(std::vector<QPoint> &point) {
     int n = point.size();
     if (n <= 2) return;
 
+    // std::random_shuffle(point.begin(), point.end());
 
-    std::random_shuffle(point.begin(), point.end());
+    // for (int i = 0 ; i <= (1 << n) - 1; i++) {
+    //     for (int j = 0; j <= n - 1; j++) {
+    //         f[i][j].dis = 1e9;
+    //         f[i][j].path.clear();
+    //     }
+    // }
+    // // Dynamic Programming:
+    // f[0][0].dis = 0;
+    // for (int i = 1; i <= (1 << n) - 1; i++) {
+    //     if (i == lowbit(i)) {
+    //         int k = log2(i);
+    //         f[i][k].dis = 0;
+    //         f[i][k].path = {k};
+    //         continue;
+    //     }
 
-    for (int i = 0 ; i <= (1 << n) - 1; i++) {
-        for (int j = 0; j <= n - 1; j++) {
-            f[i][j].dis = 1e9;
-            f[i][j].path.clear();
-        }
-    }
-    // Dynamic Programming:
-    f[0][0].dis = 0;
-    for (int i = 1; i <= (1 << n) - 1; i++) {
-        if (i == lowbit(i)) {
-            int k = log2(i);
-            f[i][k].dis = 0;
-            f[i][k].path = {k};
-            continue;
-        }
+    //     std::vector<int> v;
+    //     for (int k = 0; k <= n - 1; k++) {
+    //         if (i >> k & 1) v.push_back(k);
+    //     }
 
-        std::vector<int> v;
-        for (int k = 0; k <= n - 1; k++) {
-            if (i >> k & 1) v.push_back(k);
-        }
+    //     for (auto ki : v) {
+    //         for (auto kj : v) {
+    //             if (ki == kj) continue;
+    //             int j = i - (1 << ki);
+    //             double new_dis = f[j][kj].dis + dis(point[kj], point[ki]);
+    //             if (new_dis < f[i][ki].dis) {
+    //                 f[i][ki].dis = new_dis;
+    //                 f[i][ki].path = f[j][kj].path;
+    //                 f[i][ki].path.push_back(ki);
+    //             }
+    //         }
+    //     }
+    // }
 
-        for (auto ki : v) {
-            for (auto kj : v) {
-                if (ki == kj) continue;
-                int j = i - (1 << ki);
-                double new_dis = f[j][kj].dis + dis(point[kj], point[ki]);
-                if (new_dis < f[i][ki].dis) {
-                    f[i][ki].dis = new_dis;
-                    f[i][ki].path = f[j][kj].path;
-                    f[i][ki].path.push_back(ki);
-                }
-            }
-        }
-    }
+    // DP ans = {1e9, {}};
+    // for (int i = 0; i <= n - 1; i++) {
+    //     if (f[(1 << n) - 1][i].dis < ans.dis) {
+    //         ans = f[(1 << n) - 1][i];
+    //     }
+    // }
 
-    DP ans = {1e9, {}};
-    for (int i = 0; i <= n - 1; i++) {
-        if (f[(1 << n) - 1][i].dis < ans.dis) {
-            ans = f[(1 << n) - 1][i];
-        }
-    }
-
-    std::vector<int> path = ans.path;
+    std::vector<int> path = /*ans.path*/SolveTSP(point);
     //assert(path.size() == n);
     std::vector<QPoint> res;
     for (int i = 0; i < n; i++) {
@@ -423,7 +427,7 @@ void Widget::sortByTSP(std::vector<QPoint> &point) {
 
 
     assert(point.size() == n);
-    qDebug() << "point size: " << point.size() << "\n";
+    //qDebug() << "point size: " << point.size() << "\n";
     point = res;
 
     QPainterPath path1 = generatePath(point);

@@ -12,6 +12,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
+
+find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter Development)
+
 set(PROJECT_SOURCES
         main.cpp
         widget.cpp
@@ -24,6 +27,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         spline/Bezier.cpp spline/Bezier.h spline/BSpline.cpp spline/BSpline.h spline/CatmullRom.cpp spline/CatmullRom.h spline/Curve.cpp spline/Curve.h spline/Vector.cpp spline/Vector.h
+        solveTSP.cpp
+        tsp_solver.py
+        solveTSP.h
 
 
     )
@@ -45,7 +51,7 @@ else()
     endif()
 endif()
 
-target_link_libraries(LineSets PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(LineSets PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Python3::Python)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
