@@ -6,7 +6,9 @@
 #include <QPainterPath>
 #include <QMouseEvent>
 #include <QRandomGenerator>
-
+#include <cassert>
+#include "solveTSP.h"
+#include "findMaxCurvature.h"
 
 
 #include <vector>
@@ -20,24 +22,32 @@ class Widget;
 }
 QT_END_NAMESPACE
 
+#define len(v) sqrt(QPointF::dotProduct(v, v) + 0.0001)
+// float len(QPointF v) {
+//     return
+// }
 
 
+
+float calcCost(QPointF &c1, QPointF &c2, QPointF sp, QPointF ep);
+void SimulateAnnealing(QPointF &c1, QPointF &c2, QPointF sp, QPointF ep, QPointF dir);
 
 class Line {
 public:
-    std::vector<QPoint> point; // 记录鼠标点击的位置
+    std::vector<QPointF> point;
+    std::vector<QPointF> controlPoint;
     QColor color;
-    QPainterPath path;
-    double length() {
-        if (point.size() < 2) return 0;
-        double res = 0;
-        for (int i = 1; i < point.size(); i++) {
-            QPoint t = point[i] - point[i - 1];
-            res += sqrt(QPointF::dotProduct(t, t));
-        }
-        return res;
-    }
+    QPainterPath curve;
+
+    void sortByTSP();
+    void generateControlPoint();
+    void generateCurve();
+
     Line() {
+        color = QColor(128 + rand() % 128, 128 + rand() % 128, 128 + rand() % 128);
+    }
+    Line(vector<QPointF> &v) {
+        point = v;
         color = QColor(128 + rand() % 128, 128 + rand() % 128, 128 + rand() % 128);
     }
 };
@@ -77,6 +87,10 @@ private slots:
     void on_bthLargeAngle_clicked();
 
     void on_bthTest_clicked();
+
+
+
+    void on_bthSA_clicked();
 
 private:
     Ui::Widget *ui;

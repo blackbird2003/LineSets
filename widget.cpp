@@ -1,26 +1,13 @@
 #include "widget.h"
 #include "./ui_widget.h"
 #include "solveTSP.h"
-
-double dis(QPoint a, QPoint b) {
-    QPoint t = a - b;
-    return sqrt(QPointF::dotProduct(t, t) + 0.0001);
-}
-
-
-bool intersected_clicked = false;
-bool boundingBox_clicked = false;
-bool largeAngle_clicked = false;
-bool test_clicked = false;
+#include "optimizeCP.h"
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
 {
     ui->setupUi(this);
-    // connect(ui->btnNewLine, &QPushButton::clicked, this, &Widget::on_bthNewLine_clicked);
-    // connect(ui->btnClear, &QPushButton::clicked, this, &Widget::on_btnClear_clicked);
-    // connect(ui->btnRandom, &QPushButton::clicked, this, &Widget::on_btnRandom_clicked);
     setStyleSheet("background-color: grey;");
 
 }
@@ -30,41 +17,107 @@ Widget::~Widget()
     delete ui;
 }
 
+bool intersected_clicked = false;
+bool boundingBox_clicked = false;
+bool largeAngle_clicked = false;
+bool test_clicked = false;
+bool SA_clicked = false;
 
-
-
-
-QPainterPath generatePath(std::vector<QPoint> point) {
-    if (point.empty()) return QPainterPath();
-
-    QPainterPath path(point[0]);
-    QPointF sp, ep, c1, c2;
-    for (int i = 0; i < point.size() - 1; ++i) {
-        QPointF sp = point[i];
-        QPointF ep = point[i+1];
-        //QPainterPath p1(line.point[i]), p2(line.point[i]);
-        if (i == 0) {
-            c1 = QPointF((sp.x() + ep.x()) / 2, /*(sp.y() + ep.y()) / 2*/ ep.y());
-            //c2 = QPointF((sp.x() + ep.x()) / 2, ep.y());
-            //p1.cubicTo(c1, c2, ep); p2 = p1;
-        } else {
-            auto veclength = dis(c1.toPoint(), point[i]);
-            auto midlength = dis(point[i], point[i + 1]) / 2;
-            c1 = point[i] + (point[i] - c1) * midlength / veclength;
-            // QPointF mid = (line.point[i] + line.point[i + 1]) / 2;
-            // c2 = mid + (mid - c1);
-
-            c2 = QPointF((sp.x() + ep.x()) / 2, ep.y());
-            // p1.cubicTo(c1, c2, ep);
-            // c2 = QPointF((sp.x() + ep.x()) / 2, sp.y());
-            // p2.cubicTo(c1, c2, ep);
-        }
-        //path.cubicTo(c1, c2, ep);
-        path.quadTo(c1, ep);
-    }
-    return path;
+float CalcCost(QPointF c1, QPointF c2, QPointF sp, QPointF ep) {
+    //cost define as length + max curvature
+    double length, maxCurvature;
+    QPainterPath path(sp); path.cubicTo(c1, c2, ep);
+    length = path.length();
+    maxCurvature = findMaxCurvature(sp, c1, c2, ep).first;
+    if (rand() < RAND_MAX * 0.0001) qDebug() << length << " " << maxCurvature << "\n";
+    return 0.0001 * length;
 }
 
+#define rd() ((rand() * 2 - RAND_MAX) / RAND_MAX * 100)
+
+const float initT = 100;
+const float bar = 0.01;
+const float cold = 0.96;
+
+void SimulateAnnealing(QPointF &c1, QPointF &c2, QPointF sp, QPointF ep, QPointF dir) {
+    double T = initT;
+    QPointF u1 = c1, u2 = c2;
+    while (T > bar) {
+        // c1 can only change length of c1 - sp, while c2 can change freely
+        auto v1 = u1 + dir * T * rd();
+        auto v2 = u2;
+        v2.setX(u2.x() + T * rd());
+        v2.setY(u2.y() + T * rd());
+        auto costv = CalcCost(v1, v2, sp, ep), costu = CalcCost(u1, u2, sp, ep);
+        double delta = costv - costu;
+        if (delta < 0)
+            u1 = v1, u2 = v2;
+        else if (rand() < RAND_MAX * exp(-delta / T)) {
+            //qDebug() << costu << " -> " << costv << " " <<exp(-delta / T) ;
+             u1 = v1, u2 = v2;
+        }
+
+        T -= 0.01;
+        //qDebug() << T << " " << costv << " " << costu << "\n";
+    }
+    c1 = u1, c2 = u2;
+}
+
+void Line::sortByTSP() {
+    int n = point.size();
+    if (n <= 2) return;
+
+    std::vector<int> path = /*ans.path*/SolveTSP(point);
+    //assert(path.size() == n);
+    std::vector<QPointF> res;
+    for (int i = 0; i < n; i++) {
+        res.push_back(point[path[i]]);
+    }
+
+    assert(point.size() == n);
+    //qDebug() << "point size: " << point.size() << "\n";
+    point = res;
+}
+
+void Line::generateControlPoint() {
+    controlPoint.clear();
+    QPointF sp, ep, c1, c2, dir;
+    for (int i = 0; i < point.size() - 1; i++) {
+        sp = point[i], ep = point[i + 1];
+        if (i == 0) {
+            c1 = QPointF((sp.x() + ep.x()) / 2, sp.y());
+        } else {
+            dir = sp - c2;
+            dir = dir * len(ep - sp) / len(dir) / 3;
+            c1 = sp + dir;
+        }
+        c2 = (c1 + ep) / 2;
+        if (SA_clicked) {
+            // qDebug() << "before:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
+            // SimulateAnnealing(c1, c2, sp, ep, dir);
+            // qDebug() << "after:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
+            auto opt = OptimizeControlPoints(sp, c1, c2, ep);
+            c1 = opt.first; c2 = opt.second;
+        }
+        controlPoint.push_back(c1);
+        controlPoint.push_back(c2);
+    }
+    //qDebug() << "CP generate finished\n";
+}
+
+void Line::generateCurve() {
+
+    generateControlPoint();
+
+    int n = point.size();
+    assert(controlPoint.size() == (n - 1) * 2);
+
+    QPainterPath path(point[0]);
+    for (int i = 0; i < n - 1; i++) {
+        path.cubicTo(controlPoint[i * 2], controlPoint[i * 2 + 1], point[i + 1]);
+    }
+    curve = path;
+}
 
 QPointF getIntersection(QPointF posA, QPointF posB, QPointF posC, QPointF posD)//返回AB与CD交点，无交点返回（0,0）
 {
@@ -79,12 +132,10 @@ QPointF getIntersection(QPointF posA, QPointF posB, QPointF posC, QPointF posD)/
 
 
 
-float length(QPointF a) {
-    return sqrt(QPointF::dotProduct(a, a));
-}
+
 float angle(QPointF A, QPointF O, QPointF B) {
     auto OA = A - O, OB = B - O;
-    auto cosAOB =  QPointF::dotProduct(OA, OB) / (length(OA) * length(OB));
+    auto cosAOB =  QPointF::dotProduct(OA, OB) / (len(OA) * len(OB));
     return acos(cosAOB);
 }
 
@@ -93,96 +144,63 @@ float crossProduct(QPointF A, QPointF B) {
     return A.x() * B.y() - B.x() * A.y();
 }
 
-const int segnum = 40;
-std::vector<QPoint> pt, tmp, inters;
+
 void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
+
     auto line = lines[line_id];
     if (line.point.empty()) return;
 
     //24 05 06 add invisable points
-    pt = line.point;
-    tmp = pt;
-    inters.clear();
-    if (largeAngle_clicked) {
-        //24 05 07 switch to piecewise linearity
-        QPainterPath path = generatePath(line.point);
-        QPointF last = path.pointAtPercent(0);
-        pt.push_back(last.toPoint());
 
-        for (int i = 1; i <= segnum; i++) {
-            auto s1 = last, e1 = path.pointAtPercent(1.f * i / segnum);
-            bool changed = false;
-            for (int id = 0; id < line_id; id++) {
-                auto pre_path = lines[id].path;
-                for (int j = 1; j <= segnum; j++) {
-                    auto s2 = pre_path.pointAtPercent(1.f*(j-1)/segnum), e2 = pre_path.pointAtPercent(1.f*j/segnum);
-                    auto inter = getIntersection(s1, e1, s2, e2);
-                    inters.push_back(inter.toPoint());
-                    if (inter.x() > 1e6 || std::min(angle(s1, inter, s2), angle(s1, inter, e2)) > 3.14159 / 4)
-                        continue;
-                    changed = true;
-                    auto u = (s2 - inter);
-                    auto v1 = QPoint(u.y(), -u.x()), v2 = -v1;
-                    if (crossProduct(v1, s2 - inter) * crossProduct(s1 - inter, s2 - inter) < 0) {
-                        std::swap(v1, v2);
-                    }
-                    //s1, e1 -> ns1, ne1
-                    auto ns1 = inter + v1 * (length(s1 - e1) / length(v1));
-                    auto ne1 = inter + v2 * (length(s1 - e1) / length(v2));
-                    last = ne1;
-                    tmp.push_back(last.toPoint());
-                    pt.push_back(ns1.toPoint()); pt.push_back(ne1.toPoint());
-                    break;
-                }
-                if (changed) break;
-            }
-            if (!changed) {
-                last = e1;
-                tmp.push_back(last.toPoint());
-            }
+    // if (largeAngle_clicked) {
+    //     const int segnum = 40;
+    //     std::vector<QPoint> pt, tmp, inters;
+    //     pt = line.point;
+    //     tmp = pt;
+    //     inters.clear();
+    //     //24 05 07 switch to piecewise linearity
+    //     QPainterPath path = generatePath(line.point);
+    //     QPointF last = path.pointAtPercent(0);
+    //     pt.push_back(last.toPoint());
 
-        }
+    //     for (int i = 1; i <= segnum; i++) {
+    //         auto s1 = last, e1 = path.pointAtPercent(1.f * i / segnum);
+    //         bool changed = false;
+    //         for (int id = 0; id < line_id; id++) {
+    //             auto pre_path = lines[id].path;
+    //             for (int j = 1; j <= segnum; j++) {
+    //                 auto s2 = pre_path.pointAtPercent(1.f*(j-1)/segnum), e2 = pre_path.pointAtPercent(1.f*j/segnum);
+    //                 auto inter = getIntersection(s1, e1, s2, e2);
+    //                 inters.push_back(inter.toPoint());
+    //                 if (inter.x() > 1e6 || std::min(angle(s1, inter, s2), angle(s1, inter, e2)) > 3.14159 / 6)
+    //                     continue;
+    //                 changed = true;
+    //                 auto u = (s2 - inter);
+    //                 auto v1 = QPoint(u.y(), -u.x()), v2 = -v1;
+    //                 if (crossProduct(v1, s2 - inter) * crossProduct(s1 - inter, s2 - inter) < 0) {
+    //                     std::swap(v1, v2);
+    //                 }
+    //                 //s1, e1 -> ns1, ne1
+    //                 auto ns1 = inter + v1 * (length(s1 - e1) / length(v1));
+    //                 auto ne1 = inter + v2 * (length(s1 - e1) / length(v2));
+    //                 last = ne1;
+    //                 tmp.push_back(last.toPoint());
+    //                 pt.push_back(ns1.toPoint()); pt.push_back(ne1.toPoint());
+    //                 break;
+    //             }
+    //             if (changed) break;
+    //         }
+    //         if (!changed) {
+    //             last = e1;
+    //             tmp.push_back(last.toPoint());
+    //         }
 
-        // for (int i = 1; i < pt.size(); i++) {
-        //     auto s1 = pt[i - 1], e1 = pt[i];
-        //     bool flag = false;
-        //     for (auto [s2, e2] : drawn_segment) {
-        //         auto inter = getIntersection(s1, e1, s2, e2);
-        //         if (inter.x() > 1e6) continue;
-        //         else {
-        //             if (std::min(angle(s1, inter, s2), angle(s1, inter, e2)) < 3.14159 / 4) {
-        //                 auto u = (s2 - inter);
-        //                 auto v1 = QPoint(u.y(), -u.x()), v2 = -v1;
+    //     }
+    // }
 
-        //                 if (crossProduct(v1, s2 - inter) * crossProduct(s1 - inter, s2 - inter) < 0) {
-        //                     std::swap(v1, v2);
-        //                 }
-        //                 if (test_clicked) {
-        //                     auto p1 = inter + v1 * (length(s1 - e1) / 12 /length(v1));
-        //                     auto p2 = inter + v2 * (length(s1 - e1)/ 12 / length(v2));
-        //                     pt.insert(pt.begin() + i, p1); drawn_segment.push_back({pt[i - 1], pt[i]});
-        //                     pt.insert(pt.begin() + i + 1, p2); drawn_segment.push_back({pt[i], pt[i + 1]});
-        //                     drawn_segment.push_back({pt[i + 1], pt[i + 2]});
-        //                     i += 2;
-        //                 } else {
-        //                     auto p1 = inter + v1 * (length(s1 - inter) / 2 /length(v1));
-        //                     auto p2 = inter + v2 * (length(e1 - inter)/ 2 / length(v2));
-        //                     pt.insert(pt.begin() + i, p1); drawn_segment.push_back({pt[i - 1], pt[i]});
-        //                     pt.insert(pt.begin() + i + 1, inter); drawn_segment.push_back({pt[i], pt[i + 1]});
-        //                     pt.insert(pt.begin() + i + 2, p2); drawn_segment.push_back({pt[i + 1], pt[i + 2]});
-        //                     drawn_segment.push_back({pt[i + 2], pt[i + 3]});
-        //                     i += 3;
-        //                 }
-        //                 flag = true;
-        //                 qDebug() << "OK\n";
-        //                 break;
-        //             }
-        //         }
-        //     }
-        //     if (!flag) drawn_segment.push_back({pt[i - 1], pt[i]});
-        // }
-    }
+    // if (SA_clicked) {
 
+    //}
 
 
 
@@ -190,47 +208,17 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setPen(QPen(line.color, 2));
 
-    // 绘制 path
-    //painter.translate(40, 130);
-
-    QPainterPath path;
-    if (largeAngle_clicked) {
-        sortByTSP(pt);
-        path = generatePath(/*line.point*/ pt);
-        lines[line_id].path = path;
-    } else {
-        path = generatePath(line.point);
-        lines[line_id].path = path;
-    }
-    painter.drawPath(path);
-
-
-
+    line.generateCurve();
+    painter.drawPath(line.curve);
 
 
     if (test_clicked) {
         // 绘制曲线上的分段点
         painter.setBrush(Qt::blue);
-        for (auto p : tmp) {
-            painter.drawEllipse(p, 4, 4);
-        }
-
-        // 绘制曲线上的交叉点
-        painter.setBrush(Qt::green);
-        for (auto p : inters) {
-            painter.drawEllipse(p, 4, 4);
-        }
-
-        // 绘制pt上的所有点
-        painter.setBrush(Qt::red);
-        for (auto p : pt) {
-            painter.drawEllipse(p, 4, 4);
-        }
     }
 
 
     // 绘制曲线上的可见点
-
     for (int i = 0; i < line.point.size(); ++i) {
         painter.setBrush(Qt::gray);
         if (i == 0) {
@@ -245,12 +233,6 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
 
 void Widget::paintEvent(QPaintEvent *event)
 {
-    // QWidget::paintEvent(event);
-
-    // QPainter painter(this);
-    // painter.setPen(QPen(Qt::black, 2));
-
-
     for (int i = 0; i < lines.size(); i++) {
         drawBezierCurve(i);
     }
@@ -260,17 +242,11 @@ void Widget::paintEvent(QPaintEvent *event)
         for (auto line1 : lines) {
             for (auto line2 : lines) {
                 if (line1.color == line2.color) continue;
-                QPainterPath path1 = generatePath(line1.point);
-                QPainterPath path2 = generatePath(line2.point);
-
+                QPainterPath path1 = line1.curve;
+                QPainterPath path2 = line2.curve;
                 QPainterPath path_intersected = path1.intersected(path2);
-
-
                 painter.setRenderHint(QPainter::Antialiasing, true);
                 painter.setPen(QPen(QColor(255, 0, 0), 2));
-
-                // 绘制 path
-                //painter.translate(40, 130);
                 painter.drawPath(path_intersected);
             }
         }
@@ -278,14 +254,11 @@ void Widget::paintEvent(QPaintEvent *event)
 
     if (boundingBox_clicked) {
         for (auto &line : lines) {
-            QRectF boundingBox = generatePath(line.point).boundingRect();
+            QRectF boundingBox = line.curve.boundingRect();
             QPainterPath path;
             path.addRect(boundingBox);
             painter.setRenderHint(QPainter::Antialiasing, true);
             painter.setPen(QPen(QColor(0, 0, 255), 2));
-
-            // 绘制 path
-            //painter.translate(40, 130);
             painter.drawPath(path);
         }
     }
@@ -365,108 +338,15 @@ struct DP {
 };
 
 
-const int maxn = 21;
-DP f[1 << maxn][maxn];
 
-
-int lowbit(int i) { return i & -i; }
-void Widget::sortByTSP(std::vector<QPoint> &point) {
-    int n = point.size();
-    if (n <= 2) return;
-
-    // std::random_shuffle(point.begin(), point.end());
-
-    // for (int i = 0 ; i <= (1 << n) - 1; i++) {
-    //     for (int j = 0; j <= n - 1; j++) {
-    //         f[i][j].dis = 1e9;
-    //         f[i][j].path.clear();
-    //     }
-    // }
-    // // Dynamic Programming:
-    // f[0][0].dis = 0;
-    // for (int i = 1; i <= (1 << n) - 1; i++) {
-    //     if (i == lowbit(i)) {
-    //         int k = log2(i);
-    //         f[i][k].dis = 0;
-    //         f[i][k].path = {k};
-    //         continue;
-    //     }
-
-    //     std::vector<int> v;
-    //     for (int k = 0; k <= n - 1; k++) {
-    //         if (i >> k & 1) v.push_back(k);
-    //     }
-
-    //     for (auto ki : v) {
-    //         for (auto kj : v) {
-    //             if (ki == kj) continue;
-    //             int j = i - (1 << ki);
-    //             double new_dis = f[j][kj].dis + dis(point[kj], point[ki]);
-    //             if (new_dis < f[i][ki].dis) {
-    //                 f[i][ki].dis = new_dis;
-    //                 f[i][ki].path = f[j][kj].path;
-    //                 f[i][ki].path.push_back(ki);
-    //             }
-    //         }
-    //     }
-    // }
-
-    // DP ans = {1e9, {}};
-    // for (int i = 0; i <= n - 1; i++) {
-    //     if (f[(1 << n) - 1][i].dis < ans.dis) {
-    //         ans = f[(1 << n) - 1][i];
-    //     }
-    // }
-
-    std::vector<int> path = /*ans.path*/SolveTSP(point);
-    //assert(path.size() == n);
-    std::vector<QPoint> res;
-    for (int i = 0; i < n; i++) {
-        res.push_back(point[path[i]]);
-    }
-
-
-    assert(point.size() == n);
-    //qDebug() << "point size: " << point.size() << "\n";
-    point = res;
-
-    QPainterPath path1 = generatePath(point);
-    auto rpoint = point;
-    std::reverse(rpoint.begin(), rpoint.end());
-    QPainterPath path2 = generatePath(point);
-
-    if (path2.length() < path1.length()) point = rpoint;
-
-    // Bruteforce:
-
-    // std::vector<int> p;
-    // for (int i = 0; i < n; i++) p.push_back(i);
-    // float mindis = 1e9;
-    // std::vector<QPoint> res;
-    // do {
-    //     double dis = 0;
-    //     for (int i = 1; i < n; i++) {
-    //         QPointF d = (point[p[i]] - point[p[i - 1]]).toPointF();
-    //         dis += sqrt(QPointF::dotProduct(d, d));
-    //     }
-    //     if (dis < mindis) {
-    //         mindis = dis;
-    //         res.clear();
-    //         for (auto i : p) res.push_back(point[i]);
-    //     }
-    // } while (std::next_permutation(p.begin(), p.end()));
-    // point = res;
-
-
-}
 
 void Widget::on_bthSortCurrent_clicked()
 {
 
     if (!lines.empty()) {
-        qDebug() << "Length before sort: " << lines.back().length() << "\n";
-        sortByTSP(lines.back().point);
-        qDebug() << "Length after sort: " << lines.back().length() << "\n";
+        qDebug() << "Length before sort: " << lines.back().curve.length() << "\n";
+        lines.back().sortByTSP();
+        qDebug() << "Length after sort: " << lines.back().curve.length() << "\n";
     }
     update();
 }
@@ -476,10 +356,10 @@ void Widget::on_bthSortAll_clicked()
 {
     int cnt = 0;
     for (auto &line : lines) {
-        sortByTSP(line.point);
-        update();
+        line.sortByTSP();
         qDebug() << "OK " << ++cnt << "\n";
     }
+    update();
 }
 
 
@@ -508,7 +388,7 @@ void Widget::on_btnBoundingBox_clicked()
 void Widget::on_bthLargeAngle_clicked()
 {
     largeAngle_clicked = !largeAngle_clicked;
-    qDebug() << "largeAngle_clicked\n";
+    qDebug() << "large angle is" << (largeAngle_clicked ? "on\n" : "off\n");
     update();
 }
 
@@ -517,6 +397,14 @@ void Widget::on_bthTest_clicked()
 {
     test_clicked = !test_clicked;
     qDebug() << "test_clicked is" << (test_clicked ? "on\n" : "off\n");
+    update();
+}
+
+
+void Widget::on_bthSA_clicked()
+{
+    SA_clicked = !SA_clicked;
+    qDebug() << "SA_clicked is" << (SA_clicked ? "on\n" : "off\n");
     update();
 }
 

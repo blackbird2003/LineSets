@@ -16,9 +16,9 @@
   <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>10</y>
-     <width>91</width>
+     <x>620</x>
+     <y>0</y>
+     <width>98</width>
      <height>231</height>
     </rect>
    </property>
@@ -80,9 +80,9 @@
      </widget>
     </item>
     <item>
-     <widget class="QPushButton" name="bthTest">
+     <widget class="QPushButton" name="bthSA">
       <property name="text">
-       <string>test</string>
+       <string>Optimize</string>
       </property>
      </widget>
     </item>

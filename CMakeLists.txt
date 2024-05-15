@@ -30,6 +30,12 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         solveTSP.cpp
         tsp_solver.py
         solveTSP.h
+        findMaxCurvature.cpp
+        findMaxCurvature.h
+        findMaxCurvature.py
+        optimize_control_points.py
+        optimizeCP.h
+        optimizeCP.cpp
 
 
     )

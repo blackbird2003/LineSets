@@ -2,14 +2,14 @@
 
 
 // 计算两点之间的欧几里得距离
-double EuclideanDistance(const QPoint& a, const QPoint& b) {
+float EuclideanDistance(const QPointF& a, const QPointF& b) {
     return sqrt(pow(a.x() - b.x(), 2) + pow(a.y() - b.y(), 2));
 }
 
-vector<int> SolveTSP(vector<QPoint> &points) {
+vector<int> SolveTSP(vector<QPointF> &points) {
     int n = points.size();
     // 创建距离矩阵
-    vector<vector<double>> dis(n + 1, vector<double>(n + 1, 0.0));
+    vector<vector<float>> dis(n + 1, vector<float>(n + 1, 0));
 
     // 填充距离矩阵
     for (int i = 1; i <= n; ++i) {

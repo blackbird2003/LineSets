@@ -20,8 +20,8 @@
 
 using namespace std;
 
-double EuclideanDistance(const QPoint& a, const QPoint& b);
-vector<int> SolveTSP(vector<QPoint> &points);
+float EuclideanDistance(const QPointF& a, const QPointF& b);
+vector<int> SolveTSP(vector<QPointF> &points);
 
 
 #endif // SOLVETSP_H
