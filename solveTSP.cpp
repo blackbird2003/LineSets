@@ -23,7 +23,8 @@ vector<int> SolveTSP(vector<QPointF> &points) {
     }
 
     // 初始化Python环境
-    Py_Initialize();
+    //Py_Initialize();
+    PyGILState_STATE gilState = PyGILState_Ensure();
 
     PyObject* sysPath = PySys_GetObject("path");
     PyList_Append(sysPath, PyUnicode_FromString("D:\\Documents\\QtProject\\LineSets"));
@@ -77,7 +78,8 @@ vector<int> SolveTSP(vector<QPointF> &points) {
     }
 
     Py_DECREF(pyResult);
-    Py_Finalize();
+    //Py_Finalize();
+    PyGILState_Release(gilState);
 
     vector<int> res;
     for (auto i : result) {

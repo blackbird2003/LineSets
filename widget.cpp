@@ -79,9 +79,31 @@ void Line::sortByTSP() {
     point = res;
 }
 
+
+
+/*
+
+New Algorithm:
+
+Step1: Give default control points
+Step2: Iterate each part
+       When interating part i
+       - both c1 and c2 can move freely
+       - and c1 will affect the c2 in i-1 -th part
+The valuating function:
+       considering the curve consisting of part 1 to i
+       length: total length of i curves
+       max curvature:
+       max(max(curvature of lastsp lastc1 lastc2 lastep)
+           max(curvature of lastc2 sp c1 c2),
+           max(curvature of sp c1 c2 ep)))
+
+ */
+
 void Line::generateControlPoint() {
     controlPoint.clear();
     QPointF sp, ep, c1, c2, dir;
+    vector<float> sumLength(point.size());
     for (int i = 0; i < point.size() - 1; i++) {
         sp = point[i], ep = point[i + 1];
         if (i == 0) {
@@ -92,22 +114,30 @@ void Line::generateControlPoint() {
             c1 = sp + dir;
         }
         c2 = (c1 + ep) / 2;
-        if (SA_clicked) {
+        if (SA_clicked && i != 0) {
             // qDebug() << "before:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
             // SimulateAnnealing(c1, c2, sp, ep, dir);
             // qDebug() << "after:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
-            auto opt = OptimizeControlPoints(sp, c1, c2, ep);
+            auto opt = OptimizeControlPoints(point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
+                                            sp, c1, c2, ep);
+            qDebug() << "before:" << c1 << c2;
             c1 = opt.first; c2 = opt.second;
+            qDebug() << "after:" << c1 << c2;
+            auto lc2 = controlPoint.back();
+            lc2 = sp * 2 - c1;
+            controlPoint.pop_back();
+            controlPoint.push_back(lc2);
         }
         controlPoint.push_back(c1);
         controlPoint.push_back(c2);
     }
     //qDebug() << "CP generate finished\n";
+    SA_clicked = false;
 }
 
 void Line::generateCurve() {
 
-    generateControlPoint();
+    if (controlPoint.empty()) generateControlPoint();
 
     int n = point.size();
     assert(controlPoint.size() == (n - 1) * 2);
@@ -228,6 +258,12 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
             painter.drawText(line.point[i] + QPoint(10, 0), QString(str.c_str()));
         }
         else painter.drawEllipse(line.point[i], 4, 4);
+    }
+
+    //绘制Control Point
+    for (auto pt:line.controlPoint) {
+        painter.setBrush(Qt::green);
+        painter.drawEllipse(pt, 4, 4);
     }
 }
 

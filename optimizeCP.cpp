@@ -3,8 +3,7 @@
 #include <QDebug>
 
 
-std::pair<QPointF, QPointF> OptimizeControlPoints(QPointF P0, QPointF P1, QPointF P2, QPointF P3) {
-    Py_Initialize();
+std::pair<QPointF, QPointF> OptimizeControlPoints(QPointF LP0, QPointF LP1, QPointF LP2, QPointF P0, QPointF P1, QPointF P2, QPointF P3) {
     PyGILState_STATE gilState = PyGILState_Ensure();
 
     // 设置Python模块搜索路径
@@ -22,6 +21,7 @@ std::pair<QPointF, QPointF> OptimizeControlPoints(QPointF P0, QPointF P1, QPoint
         throw std::runtime_error("Failed to load \"optimize_control_points\"");
     }
 
+    qDebug() << "pwp";
     // 获取函数
     PyObject* pFunc = PyObject_GetAttrString(pModule, "optimize_control_points");
     if (!pFunc || !PyCallable_Check(pFunc)) {
@@ -33,12 +33,15 @@ std::pair<QPointF, QPointF> OptimizeControlPoints(QPointF P0, QPointF P1, QPoint
     }
 
     // 构建参数
-    PyObject* pArgs = PyTuple_Pack(4,
+    PyObject* pArgs = PyTuple_Pack(7,
+                                   Py_BuildValue("[dd]", LP0.x(), LP0.y()),
+                                   Py_BuildValue("[dd]", LP1.x(), LP1.y()),
+                                   Py_BuildValue("[dd]", LP2.x(), LP2.y()),
                                    Py_BuildValue("[dd]", P0.x(), P0.y()),
                                    Py_BuildValue("[dd]", P1.x(), P1.y()),
                                    Py_BuildValue("[dd]", P2.x(), P2.y()),
                                    Py_BuildValue("[dd]", P3.x(), P3.y()));
-
+    qDebug() << "qwq";
     // 调用函数
     PyObject* pValue = PyObject_CallObject(pFunc, pArgs);
     Py_DECREF(pArgs);
@@ -59,8 +62,8 @@ std::pair<QPointF, QPointF> OptimizeControlPoints(QPointF P0, QPointF P1, QPoint
 
     Py_DECREF(pValue);
     PyGILState_Release(gilState);
-    qDebug() << P0 << P1 << P2 << P3;
+    // qDebug() << P0 << P1 << P2 << P3;
     auto np1 = QPointF(p1x, p1y), np2 = QPointF(p2x, p2y);
-    qDebug() << P0 << np1 << np2 << P3;
+    //qDebug() << P0 << np1 << np2 << P3;
     return std::make_pair(np1, np2);
 }
