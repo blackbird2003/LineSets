@@ -29,7 +29,7 @@ def curve_length(P0, P1, P2, P3):
     length, _ = quad(lambda t: np.linalg.norm(bezier_derivative(t, P0, P1, P2, P3)), 0, 1)
     return length
 
-def optimize_control_points(LP0, LP1, LP2, P0, P1, P2, P3):
+def optimize_control_points(mode, optPara, LP0, LP1, LP2, P0, P1, P2, P3):
     print("python begin,", P0, P1, P2, P3)
     LP0 = np.array(LP0)
     LP1 = np.array(LP1)
@@ -51,12 +51,23 @@ def optimize_control_points(LP0, LP1, LP2, P0, P1, P2, P3):
         k3, _ = find_max_curvature(LP2, P0, P1, P2)
         k4, _ = find_max_curvature(P0, P1, P2, P3)
         max_k = max(k1, k2, k3, k4)
-        return length + 1e4*max_k
+        return length + optPara*max_k
+
 
     initial_params = [P1[0], P1[1], P2[0], P2[1]]
-    result = minimize(objective, initial_params, bounds=[(P1[0]-400, P1[0]+400), (P1[1]-400, P1[1]+400), (P2[0]-400, P2[0]+400), (P2[1]-400, P2[1]+400)])
-    P1x_opt, P1y_opt, P2x_opt, P2y_opt = result.x
-    P1_opt = np.array([P1x_opt, P1y_opt])
-    P2_opt = np.array([P2x_opt, P2y_opt])
-    print("python finished", P1_opt, P2_opt)
-    return P1_opt[0], P1_opt[1], P2_opt[0], P2_opt[1]
+
+    if mode == 0:
+        cost = objective(initial_params)
+        return P1[0], P1[1], P2[0], P2[1], cost
+
+    else:
+        result = minimize(objective, initial_params, bounds=[(P1[0]-200, P1[0]+200), (P1[1]-200, P1[1]+200), (P2[0]-200, P2[0]+200), (P2[1]-200, P2[1]+200)])
+        P1x_opt, P1y_opt, P2x_opt, P2y_opt = result.x
+        P1_opt = np.array([P1x_opt, P1y_opt])
+        P2_opt = np.array([P2x_opt, P2y_opt])
+        print("python finished", P1_opt, P2_opt)
+        print(result)
+        return P1_opt[0], P1_opt[1], P2_opt[0], P2_opt[1], result.fun
+
+
+# optimize_control_points([1, 1],[2, 2],[3, 3],[4, 4],[5, 5],[6, 6],[7, 7]);

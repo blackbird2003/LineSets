@@ -2,13 +2,22 @@
 #include "./ui_widget.h"
 #include "solveTSP.h"
 #include "optimizeCP.h"
+#include "optimizeCP_global.h"
+#include <iostream>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+
+
+double optPara = 10000;
+
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
 {
     ui->setupUi(this);
-    setStyleSheet("background-color: grey;");
+    setStyleSheet("background-color: white;");
 
 }
 
@@ -21,7 +30,8 @@ bool intersected_clicked = false;
 bool boundingBox_clicked = false;
 bool largeAngle_clicked = false;
 bool test_clicked = false;
-bool SA_clicked = false;
+bool Optimize_clicked = false;
+bool optCpGlobal_clicked = false;
 
 float CalcCost(QPointF c1, QPointF c2, QPointF sp, QPointF ep) {
     //cost define as length + max curvature
@@ -64,6 +74,7 @@ void SimulateAnnealing(QPointF &c1, QPointF &c2, QPointF sp, QPointF ep, QPointF
 }
 
 void Line::sortByTSP() {
+    qDebug() << "Sorting TSP";
     int n = point.size();
     if (n <= 2) return;
 
@@ -77,16 +88,37 @@ void Line::sortByTSP() {
     assert(point.size() == n);
     //qDebug() << "point size: " << point.size() << "\n";
     point = res;
+
+    controlPoint.clear(); cost = 0;
 }
 
 
 
 /*
-
-New Algorithm:
-
+Algorithm 1: only consider current part
 Step1: Give default control points
-Step2: Iterate each part
+Step2: for each part, c1 move on the line defined by sp and c1
+       c2 moves free
+       optimize by considering
+       k1 * length + k2 * max_curvature, only in this part
+
+
+Algorithm 2: consider the whole curve
+Step1: Give default control points
+Step2: All control points move freely
+       optimize by considering
+       k1 * total length + k2 * max_curvature of whole curve
+       curvature in endpoint are approximated by
+            curvature of lastc1 lastc2 sp c1
+            curvature of lastc2 sp c1 c2
+
+Algorithm 3:
+Step1: Give default control points
+Step2:
+We note that, even if both c1 and c2 in part i freely change
+it will only affect part i-1, will not affect  part 1,2,...,i-2
+
+Iterate each part
        When interating part i
        - both c1 and c2 can move freely
        - and c1 will affect the c2 in i-1 -th part
@@ -94,59 +126,121 @@ The valuating function:
        considering the curve consisting of part 1 to i
        length: total length of i curves
        max curvature:
-       max(max(curvature of lastsp lastc1 lastc2 lastep)
+       max(max(curvature of lastsp lastc1 lastc2 sp),
+           max(curvature of lastc1 lastc2 sp c1)
            max(curvature of lastc2 sp c1 c2),
            max(curvature of sp c1 c2 ep)))
 
  */
 
 void Line::generateControlPoint() {
-    controlPoint.clear();
-    QPointF sp, ep, c1, c2, dir;
+    // i = 0, 1, 2, ..., n - 1
+
+    int i = controlPoint.size() / 2;
+    if (i > point.size() - 1) return;
+
+    QPointF sp = point[i], ep = point[i + 1];
+    QPointF c1, c2, dir;
     vector<float> sumLength(point.size());
-    for (int i = 0; i < point.size() - 1; i++) {
-        sp = point[i], ep = point[i + 1];
-        if (i == 0) {
-            c1 = QPointF((sp.x() + ep.x()) / 2, sp.y());
-        } else {
-            dir = sp - c2;
-            dir = dir * len(ep - sp) / len(dir) / 3;
-            c1 = sp + dir;
-        }
+
+    if (i == 0) {
+        c1 = QPointF((sp.x() + ep.x()) / 2, sp.y());
         c2 = (c1 + ep) / 2;
-        if (SA_clicked && i != 0) {
-            // qDebug() << "before:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
-            // SimulateAnnealing(c1, c2, sp, ep, dir);
-            // qDebug() << "after:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
-            auto opt = OptimizeControlPoints(point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
-                                            sp, c1, c2, ep);
-            qDebug() << "before:" << c1 << c2;
-            c1 = opt.first; c2 = opt.second;
-            qDebug() << "after:" << c1 << c2;
-            auto lc2 = controlPoint.back();
-            lc2 = sp * 2 - c1;
-            controlPoint.pop_back();
-            controlPoint.push_back(lc2);
-        }
         controlPoint.push_back(c1);
         controlPoint.push_back(c2);
+        return;
     }
+
+    dir = sp - controlPoint.back();
+    dir = dir * len(ep - sp) / len(dir) / 3;
+    c1 = sp + dir;
+    c2 = (c1 + ep) / 2;
+
+    if (Optimize_clicked) {
+        auto opt = OptimizeControlPoints(1, optPara, point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
+                                         sp, c1, c2, ep);
+        //qDebug() << "before:" << c1 << c2;
+        c1 = std::get<0>(opt); c2 = std::get<1>(opt);
+        //qDebug() << "after:" << c1 << c2;
+        //qDebug() << "optPara:" << optPara;
+        this->cost += std::get<2>(opt);
+        auto lc2 = controlPoint.back();
+        lc2 = sp * 2 - c1;
+        controlPoint.pop_back();
+        controlPoint.push_back(lc2);
+    } else {
+        auto opt = OptimizeControlPoints(0, optPara, point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
+                                         sp, c1, c2, ep);
+        this->cost += std::get<2>(opt);
+    }
+
+    controlPoint.push_back(c1);
+    controlPoint.push_back(c2);
+
+    // QPointF sp, ep, c1, c2, dir;
+
+
+
+    // //totalCost = 0;
+
+    // for (int i = 0; i < point.size() - 1; i++) {
+    //     sp = point[i], ep = point[i + 1];
+    //     if (i == 0) {
+    //         c1 = QPointF((sp.x() + ep.x()) / 2, sp.y());
+    //     } else {
+    //         dir = sp - c2;
+    //         dir = dir * len(ep - sp) / len(dir) / 3;
+    //         c1 = sp + dir;
+    //     }
+    //     c2 = (c1 + ep) / 2;
+    //     if (Optimize_clicked && i != 0) {
+    //         // qDebug() << "before:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
+    //         // SimulateAnnealing(c1, c2, sp, ep, dir);
+    //         // qDebug() << "after:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
+    //         auto opt = OptimizeControlPoints(1, optPara, point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
+    //                                         sp, c1, c2, ep);
+
+    //         qDebug() << "before:" << c1 << c2;
+    //         c1 = std::get<0>(opt); c2 = std::get<1>(opt);
+    //         qDebug() << "after:" << c1 << c2;
+    //         qDebug() << "optPara:" << optPara;
+    //         totalCost += std::get<2>(opt);
+    //         auto lc2 = controlPoint.back();
+    //         lc2 = sp * 2 - c1;
+    //         controlPoint.pop_back();
+    //         controlPoint.push_back(lc2);
+    //     } else if (i != 0) {
+    //         auto opt = OptimizeControlPoints(0, optPara, point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
+    //                                          sp, c1, c2, ep);
+    //         totalCost += std::get<2>(opt);
+    //     }
+    //     controlPoint.push_back(c1);
+    //     controlPoint.push_back(c2);
+    // }
     //qDebug() << "CP generate finished\n";
-    SA_clicked = false;
+    // if (optCpGlobal_clicked) {
+    //     controlPoint = OptimizeControlPoints_global(point, controlPoint);
+    // }
 }
 
 void Line::generateCurve() {
 
-    if (controlPoint.empty()) generateControlPoint();
-
     int n = point.size();
-    assert(controlPoint.size() == (n - 1) * 2);
+    int m = controlPoint.size() / 2;
+    if (Optimize_clicked) controlPoint.clear(), cost= 0;
+    while (controlPoint.size() < (n - 1) * 2) {
+        qDebug() << controlPoint.size() <<  (n - 1) * 2;
+        generateControlPoint();
+    }
+
 
     QPainterPath path(point[0]);
     for (int i = 0; i < n - 1; i++) {
         path.cubicTo(controlPoint[i * 2], controlPoint[i * 2 + 1], point[i + 1]);
     }
     curve = path;
+    //Optimize_clicked = false;
+    //optCpGlobal_clicked = false;
 }
 
 QPointF getIntersection(QPointF posA, QPointF posB, QPointF posC, QPointF posD)//返回AB与CD交点，无交点返回（0,0）
@@ -177,7 +271,8 @@ float crossProduct(QPointF A, QPointF B) {
 
 void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
 
-    auto line = lines[line_id];
+
+    auto &line = lines[line_id];
     if (line.point.empty()) return;
 
     //24 05 06 add invisable points
@@ -228,7 +323,7 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
     //     }
     // }
 
-    // if (SA_clicked) {
+    // if (Optimize_clicked) {
 
     //}
 
@@ -238,7 +333,11 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setPen(QPen(line.color, 2));
 
-    line.generateCurve();
+    if (Optimize_clicked || line.controlPoint.size() < (line.point.size() - 1) * 2) {
+        line.generateCurve();
+    }
+
+
     painter.drawPath(line.curve);
 
 
@@ -269,38 +368,47 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
 
 void Widget::paintEvent(QPaintEvent *event)
 {
-    for (int i = 0; i < lines.size(); i++) {
-        drawBezierCurve(i);
+    qDebug() << "paintEvent ing..";
+
+    double totalCost = 0;
+    if (1 || Optimize_clicked || lines.back().controlPoint.size() < (lines.back().point.size() - 1) * 2) {
+        for (int i = 0; i < lines.size(); i++) {
+            drawBezierCurve(i);
+            totalCost += lines[i].cost;
+        }
     }
 
     QPainter painter(this);
-    if (intersected_clicked) {
-        for (auto line1 : lines) {
-            for (auto line2 : lines) {
-                if (line1.color == line2.color) continue;
-                QPainterPath path1 = line1.curve;
-                QPainterPath path2 = line2.curve;
-                QPainterPath path_intersected = path1.intersected(path2);
-                painter.setRenderHint(QPainter::Antialiasing, true);
-                painter.setPen(QPen(QColor(255, 0, 0), 2));
-                painter.drawPath(path_intersected);
-            }
-        }
-    }
+    // if (intersected_clicked) {
+    //     for (auto line1 : lines) {
+    //         for (auto line2 : lines) {
+    //             if (line1.color == line2.color) continue;
+    //             QPainterPath path1 = line1.curve;
+    //             QPainterPath path2 = line2.curve;
+    //             QPainterPath path_intersected = path1.intersected(path2);
+    //             painter.setRenderHint(QPainter::Antialiasing, true);
+    //             painter.setPen(QPen(QColor(255, 0, 0), 2));
+    //             painter.drawPath(path_intersected);
+    //         }
+    //     }
+    // }
 
-    if (boundingBox_clicked) {
-        for (auto &line : lines) {
-            QRectF boundingBox = line.curve.boundingRect();
-            QPainterPath path;
-            path.addRect(boundingBox);
-            painter.setRenderHint(QPainter::Antialiasing, true);
-            painter.setPen(QPen(QColor(0, 0, 255), 2));
-            painter.drawPath(path);
-        }
-    }
+    // if (boundingBox_clicked) {
+    //     for (auto &line : lines) {
+    //         QRectF boundingBox = line.curve.boundingRect();
+    //         QPainterPath path;
+    //         path.addRect(boundingBox);
+    //         painter.setRenderHint(QPainter::Antialiasing, true);
+    //         painter.setPen(QPen(QColor(0, 0, 255), 2));
+    //         painter.drawPath(path);
+    //     }
+    // }
 
+    qDebug() << totalCost;
     ui->labelLineNumber->setText("Line number:" + QString(QString::number((int)lines.size())));
+    ui->labelTotalCost->setText(QString(QString::number(totalCost)));
     //qDebug() << "line number:" << lines.size() << "\n";
+    Optimize_clicked = 0;
 
 }
 
@@ -311,7 +419,7 @@ void Widget::mousePressEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton) {
         if (lines.empty()) lines.push_back({});
         lines.back().point.push_back(event->pos());
-        update(); // 更新绘图
+        update();        // 更新绘图
     }
     // if (event->button() == Qt::RightButton) {
     //     line.point.push_back({});
@@ -437,10 +545,23 @@ void Widget::on_bthTest_clicked()
 }
 
 
-void Widget::on_bthSA_clicked()
+void Widget::on_btnOptimize_clicked()
 {
-    SA_clicked = !SA_clicked;
-    qDebug() << "SA_clicked is" << (SA_clicked ? "on\n" : "off\n");
+    Optimize_clicked = !Optimize_clicked;
+    qDebug() << "Optimize_clicked is" << (Optimize_clicked ? "on\n" : "off\n");
     update();
+}
+
+
+void Widget::on_btnOptCpGlobal_clicked()
+{
+    optCpGlobal_clicked = !optCpGlobal_clicked;
+    qDebug() << "optCpGlobal_clicked is" << (optCpGlobal_clicked ? "on\n" : "off\n");
+    update();
+}
+
+void Widget::on_lineEdit_textChanged(const QString &arg1)
+{
+    optPara = arg1.toDouble();
 }
 

@@ -38,17 +38,18 @@ public:
     std::vector<QPointF> controlPoint;
     QColor color;
     QPainterPath curve;
+    double cost;
 
     void sortByTSP();
     void generateControlPoint();
     void generateCurve();
 
     Line() {
-        color = QColor(128 + rand() % 128, 128 + rand() % 128, 128 + rand() % 128);
+        color = QColor(rand() % 128, rand() % 128, rand() % 128);
     }
     Line(vector<QPointF> &v) {
         point = v;
-        color = QColor(128 + rand() % 128, 128 + rand() % 128, 128 + rand() % 128);
+        color = QColor(rand() % 128, rand() % 128, rand() % 128);
     }
 };
 
@@ -90,7 +91,13 @@ private slots:
 
 
 
-    void on_bthSA_clicked();
+    void on_btnOptimize_clicked();
+
+    void on_btnOptCpGlobal_clicked();
+
+    //void on_bthSA_clicked();
+
+    void on_lineEdit_textChanged(const QString &arg1);
 
 private:
     Ui::Widget *ui;

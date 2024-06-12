@@ -36,6 +36,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         optimize_control_points.py
         optimizeCP.h
         optimizeCP.cpp
+        optimizeCP_global.cpp
+        optimizeCP_global.h
+        optimize_control_points_global.py
 
 
     )

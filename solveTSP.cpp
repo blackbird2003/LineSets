@@ -7,6 +7,9 @@ float EuclideanDistance(const QPointF& a, const QPointF& b) {
 }
 
 vector<int> SolveTSP(vector<QPointF> &points) {
+    vector<int> res;
+    // for (int i = 0;  i < points.size(); i++) res.push_back(i);
+    // return res;
     int n = points.size();
     // 创建距离矩阵
     vector<vector<float>> dis(n + 1, vector<float>(n + 1, 0));
@@ -81,7 +84,7 @@ vector<int> SolveTSP(vector<QPointF> &points) {
     //Py_Finalize();
     PyGILState_Release(gilState);
 
-    vector<int> res;
+
     for (auto i : result) {
         if (i != 0) res.push_back(i - 1);
     }
