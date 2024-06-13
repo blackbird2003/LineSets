@@ -25,3 +25,9 @@ You can load passing points from a txt file and save the control points to a txt
 
 
 
+
+
+
+
+Later we may study that, when there are multiple curves, how can we optimize the position of the control points so that the minimum crossing Angle is as large as possible
+
