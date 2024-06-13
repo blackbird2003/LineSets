@@ -7,10 +7,17 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <QMenuBar>
+#include <QFileDialog>
+#include <QTextStream>
 
 
 double optPara = 10000;
 
+QPointF *draggedControlPoint = nullptr;
+QPointF *centerPoint = nullptr;
+QPointF *pairControlPoint = nullptr;
+bool isDragging = false;
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
@@ -18,6 +25,12 @@ Widget::Widget(QWidget *parent)
 {
     ui->setupUi(this);
     setStyleSheet("background-color: white;");
+
+    setupMenu();
+
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->setMenuBar(menuBar);
+    setLayout(layout);
 
 }
 
@@ -32,46 +45,9 @@ bool largeAngle_clicked = false;
 bool test_clicked = false;
 bool Optimize_clicked = false;
 bool optCpGlobal_clicked = false;
+bool showControlPoints = true;
 
-float CalcCost(QPointF c1, QPointF c2, QPointF sp, QPointF ep) {
-    //cost define as length + max curvature
-    double length, maxCurvature;
-    QPainterPath path(sp); path.cubicTo(c1, c2, ep);
-    length = path.length();
-    maxCurvature = findMaxCurvature(sp, c1, c2, ep).first;
-    if (rand() < RAND_MAX * 0.0001) qDebug() << length << " " << maxCurvature << "\n";
-    return 0.0001 * length;
-}
 
-#define rd() ((rand() * 2 - RAND_MAX) / RAND_MAX * 100)
-
-const float initT = 100;
-const float bar = 0.01;
-const float cold = 0.96;
-
-void SimulateAnnealing(QPointF &c1, QPointF &c2, QPointF sp, QPointF ep, QPointF dir) {
-    double T = initT;
-    QPointF u1 = c1, u2 = c2;
-    while (T > bar) {
-        // c1 can only change length of c1 - sp, while c2 can change freely
-        auto v1 = u1 + dir * T * rd();
-        auto v2 = u2;
-        v2.setX(u2.x() + T * rd());
-        v2.setY(u2.y() + T * rd());
-        auto costv = CalcCost(v1, v2, sp, ep), costu = CalcCost(u1, u2, sp, ep);
-        double delta = costv - costu;
-        if (delta < 0)
-            u1 = v1, u2 = v2;
-        else if (rand() < RAND_MAX * exp(-delta / T)) {
-            //qDebug() << costu << " -> " << costv << " " <<exp(-delta / T) ;
-             u1 = v1, u2 = v2;
-        }
-
-        T -= 0.01;
-        //qDebug() << T << " " << costv << " " << costu << "\n";
-    }
-    c1 = u1, c2 = u2;
-}
 
 void Line::sortByTSP() {
     qDebug() << "Sorting TSP";
@@ -135,7 +111,6 @@ The valuating function:
 
 void Line::generateControlPoint() {
     // i = 0, 1, 2, ..., n - 1
-
     int i = controlPoint.size() / 2;
     if (i > point.size() - 1) return;
 
@@ -163,64 +138,19 @@ void Line::generateControlPoint() {
         c1 = std::get<0>(opt); c2 = std::get<1>(opt);
         //qDebug() << "after:" << c1 << c2;
         //qDebug() << "optPara:" << optPara;
-        this->cost += std::get<2>(opt);
+        //this->maxCurvature = max(this->maxCurvature, std::get<2>(opt));
         auto lc2 = controlPoint.back();
         lc2 = sp * 2 - c1;
         controlPoint.pop_back();
         controlPoint.push_back(lc2);
     } else {
-        auto opt = OptimizeControlPoints(0, optPara, point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
-                                         sp, c1, c2, ep);
-        this->cost += std::get<2>(opt);
+        // auto opt = OptimizeControlPoints(0, optPara, point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
+        //                                  sp, c1, c2, ep);
+        //this->maxCurvature = max(this->maxCurvature, std::get<2>(opt));
     }
 
     controlPoint.push_back(c1);
     controlPoint.push_back(c2);
-
-    // QPointF sp, ep, c1, c2, dir;
-
-
-
-    // //totalCost = 0;
-
-    // for (int i = 0; i < point.size() - 1; i++) {
-    //     sp = point[i], ep = point[i + 1];
-    //     if (i == 0) {
-    //         c1 = QPointF((sp.x() + ep.x()) / 2, sp.y());
-    //     } else {
-    //         dir = sp - c2;
-    //         dir = dir * len(ep - sp) / len(dir) / 3;
-    //         c1 = sp + dir;
-    //     }
-    //     c2 = (c1 + ep) / 2;
-    //     if (Optimize_clicked && i != 0) {
-    //         // qDebug() << "before:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
-    //         // SimulateAnnealing(c1, c2, sp, ep, dir);
-    //         // qDebug() << "after:" << c1 << " " << c2 << findMaxCurvature(sp, c1, c2, ep).first;
-    //         auto opt = OptimizeControlPoints(1, optPara, point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
-    //                                         sp, c1, c2, ep);
-
-    //         qDebug() << "before:" << c1 << c2;
-    //         c1 = std::get<0>(opt); c2 = std::get<1>(opt);
-    //         qDebug() << "after:" << c1 << c2;
-    //         qDebug() << "optPara:" << optPara;
-    //         totalCost += std::get<2>(opt);
-    //         auto lc2 = controlPoint.back();
-    //         lc2 = sp * 2 - c1;
-    //         controlPoint.pop_back();
-    //         controlPoint.push_back(lc2);
-    //     } else if (i != 0) {
-    //         auto opt = OptimizeControlPoints(0, optPara, point[i-1], controlPoint[controlPoint.size() - 2], controlPoint[controlPoint.size() - 1],
-    //                                          sp, c1, c2, ep);
-    //         totalCost += std::get<2>(opt);
-    //     }
-    //     controlPoint.push_back(c1);
-    //     controlPoint.push_back(c2);
-    // }
-    //qDebug() << "CP generate finished\n";
-    // if (optCpGlobal_clicked) {
-    //     controlPoint = OptimizeControlPoints_global(point, controlPoint);
-    // }
 }
 
 void Line::generateCurve() {
@@ -235,8 +165,17 @@ void Line::generateCurve() {
 
 
     QPainterPath path(point[0]);
+    this->maxCurvature = 0;
     for (int i = 0; i < n - 1; i++) {
         path.cubicTo(controlPoint[i * 2], controlPoint[i * 2 + 1], point[i + 1]);
+        // 0 01 1 23 2 34
+        if (i != 0) {
+            auto opt = OptimizeControlPoints(0, optPara, point[i-1], controlPoint[(i-1)*2], controlPoint[(i-1)*2+1],
+                                             point[i], controlPoint[i*2], controlPoint[i*2+1], point[i + 1]);
+            maxCurvature = max(maxCurvature, std::get<2>(opt));
+        }
+
+
     }
     curve = path;
     //Optimize_clicked = false;
@@ -360,9 +299,36 @@ void Widget::drawBezierCurve(/*Line &line*/ int line_id) {
     }
 
     //绘制Control Point
-    for (auto pt:line.controlPoint) {
-        painter.setBrush(Qt::green);
-        painter.drawEllipse(pt, 4, 4);
+    if (showControlPoints) {
+        for (auto pt:line.controlPoint) {
+            painter.setBrush(Qt::green);
+            painter.drawEllipse(pt, 4, 4);
+        }
+
+        painter.setBrush(Qt::red);
+        if(centerPoint) painter.drawEllipse(*centerPoint, 4, 4);
+
+
+        // 设置画笔为黑色虚线
+        QPen pen(Qt::black, 1);
+        QVector<qreal> dashes;
+        qreal space = 10; // 空白长度
+        qreal dashLength = 4; // 虚线长度
+        dashes << dashLength << space;
+        pen.setDashPattern(dashes);
+
+        painter.setPen(pen);
+
+        // 绘制两个点之间的黑色虚线
+        auto p = line.point;
+        auto cp = line.controlPoint;
+        auto n = p.size();
+        for (int i = 0; i < n - 1; i++) {
+            // 0 01 1 23 2 45 n-2 2n-4 2n-3 n-1
+            painter.drawLine(p[i], cp[i * 2]);
+            painter.drawLine(cp[i * 2], cp[i * 2 + 1]);
+            painter.drawLine(cp[i * 2 + 1], p[i + 1]);
+        }
     }
 }
 
@@ -370,11 +336,12 @@ void Widget::paintEvent(QPaintEvent *event)
 {
     qDebug() << "paintEvent ing..";
 
-    double totalCost = 0;
+    double maxCurvature = 0, totalLength = 0;
     if (1 || Optimize_clicked || lines.back().controlPoint.size() < (lines.back().point.size() - 1) * 2) {
         for (int i = 0; i < lines.size(); i++) {
             drawBezierCurve(i);
-            totalCost += lines[i].cost;
+            maxCurvature = max(maxCurvature, lines[i].maxCurvature);
+            totalLength += lines[i].curve.length();
         }
     }
 
@@ -404,27 +371,15 @@ void Widget::paintEvent(QPaintEvent *event)
     //     }
     // }
 
-    qDebug() << totalCost;
+    qDebug() << maxCurvature;
     ui->labelLineNumber->setText("Line number:" + QString(QString::number((int)lines.size())));
-    ui->labelTotalCost->setText(QString(QString::number(totalCost)));
+
+    ui->labelTotalLength->setText("Length: " + QString(QString::number(totalLength)));
+    ui->labelMaxCurvature->setText("MaxCurvarure: " + QString(QString::number(maxCurvature)));
+    ui->labelTotalCost->setText("Cost: " + QString(QString::number(totalLength + optPara * maxCurvature)));
     //qDebug() << "line number:" << lines.size() << "\n";
     Optimize_clicked = 0;
 
-}
-
-
-void Widget::mousePressEvent(QMouseEvent *event)
-{
-
-    if (event->button() == Qt::LeftButton) {
-        if (lines.empty()) lines.push_back({});
-        lines.back().point.push_back(event->pos());
-        update();        // 更新绘图
-    }
-    // if (event->button() == Qt::RightButton) {
-    //     line.point.push_back({});
-    //     printf("line.point number: %d\n", line.point.size());
-    // }
 }
 
 void Widget::on_btnNewLine_clicked()
@@ -552,6 +507,18 @@ void Widget::on_btnOptimize_clicked()
     update();
 }
 
+void Widget::on_bthCP_clicked()
+{
+    if (showControlPoints) {
+        showControlPoints = false;
+        ui->bthCP->setText("Show Control Points");
+    } else {
+        showControlPoints = true;
+        ui->bthCP->setText("Hide Control Points");
+    }
+    update();
+}
+
 
 void Widget::on_btnOptCpGlobal_clicked()
 {
@@ -564,4 +531,171 @@ void Widget::on_lineEdit_textChanged(const QString &arg1)
 {
     optPara = arg1.toDouble();
 }
+
+
+void Widget::on_btnUndo_clicked()
+{
+    if (!lines.empty()) {
+        auto &l = lines.back();
+        if (!l.point.empty()) {
+            l.point.pop_back();
+            while (l.controlPoint.size() > (l.point.size() - 1) * 2)
+                l.controlPoint.pop_back();
+            l.generateCurve();
+        }
+    }
+    update();
+}
+
+
+
+
+
+void Widget::mousePressEvent(QMouseEvent *event)
+{
+    QPointF clickedPoint = event->pos();
+    isDragging = false;
+
+    // 检查是否点击在控制点上
+    for (auto &line : lines) {
+        auto &cp = line.controlPoint;
+        for (int i = 0; i < cp.size(); i++) {
+            auto pt = &cp[i];
+            if (QLineF(clickedPoint, *pt).length() < 5) {
+                draggedControlPoint = pt;
+                if (i == 0) {
+                    pairControlPoint = nullptr;
+                    centerPoint = &line.point[0];
+                } else if (i == cp.size() - 1) {
+                    pairControlPoint = nullptr;
+                    centerPoint = &line.point.back();
+                } else if (i % 2 == 0) {
+                    pairControlPoint = pt - 1;
+                    centerPoint = &line.point[(i + 1) / 2];
+                    // 12:1 34:2 56:3 ..
+                } else {
+                    pairControlPoint = pt + 1;
+                    centerPoint = &line.point[(i + 1) / 2];
+                }
+                isDragging = true;
+                break;
+            }
+        }
+    }
+
+    // 如果没有点击在控制点上，添加新点
+    if (!isDragging) {
+        if (lines.empty()) {
+            lines.push_back(Line());
+        }
+        lines.back().point.push_back(clickedPoint);
+        update();
+    }
+}
+
+void Widget::mouseMoveEvent(QMouseEvent *event)
+{
+    if (isDragging && draggedControlPoint) {
+        *draggedControlPoint = event->pos();
+
+        if (pairControlPoint) {
+            auto old_len = len(*pairControlPoint - *centerPoint);
+            auto dir = *centerPoint - *draggedControlPoint;
+            dir = dir * old_len / len(dir);
+            *pairControlPoint = *centerPoint + dir;
+        }
+
+        for (auto &line : lines) {
+            line.generateCurve();
+        }
+        update();
+    }
+}
+
+void Widget::mouseReleaseEvent(QMouseEvent *event)
+{
+    draggedControlPoint = centerPoint = pairControlPoint = nullptr;
+    isDragging = false;
+    update();
+}
+
+void Widget::setupMenu()
+{
+    menuBar = new QMenuBar(this);
+    QMenu *fileMenu = new QMenu("File", this);
+
+    importAction = new QAction("Load", this);
+    connect(importAction, &QAction::triggered, this, &Widget::importFromFile);
+    fileMenu->addAction(importAction);
+
+    exportAction = new QAction("Save", this);
+    connect(exportAction, &QAction::triggered, this, &Widget::exportToFile);
+    fileMenu->addAction(exportAction);
+
+    menuBar->addMenu(fileMenu);
+}
+
+void Widget::exportToFile()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, "保存文件", "", "Text Files (*.txt)");
+    if (!fileName.isEmpty()) {
+        QFile file(fileName);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+
+            for (int i = 0; i < lines.size(); ++i) {
+                out << i << "\n";
+                for (const auto &pt : lines[i].controlPoint) {
+                    out << pt.x() << " " << pt.y() << "\n";
+                }
+            }
+
+            file.close();
+        }
+    }
+}
+
+void Widget::importFromFile()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "打开文件", "", "Text Files (*.txt)");
+    if (!fileName.isEmpty()) {
+        QFile file(fileName);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&file);
+
+            lines.clear();
+            Line line;
+            int lineIndex = -1;
+            while (!in.atEnd()) {
+                QString lineText = in.readLine();
+                if (lineText.trimmed().isEmpty()) {
+                    continue;
+                }
+                bool ok;
+                if (lineText.toInt(&ok)) {
+                    if (lineIndex != -1) {
+                        lines.push_back(line);
+                        line.controlPoint.clear();
+                        line.point.clear();
+                    }
+                    lineIndex = lineText.toInt();
+                } else {
+                    QStringList coords = lineText.split(' ');
+                    if (coords.size() == 2) {
+                        QPointF pt(coords[0].toFloat(), coords[1].toFloat());
+                        line.point.push_back(pt);
+                    }
+                }
+            }
+            if (lineIndex != -1) {
+                lines.push_back(line);
+            }
+
+            file.close();
+            update();
+        }
+    }
+}
+
+
 

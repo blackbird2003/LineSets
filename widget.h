@@ -7,6 +7,7 @@
 #include <QMouseEvent>
 #include <QRandomGenerator>
 #include <cassert>
+#include <QMenuBar>
 #include "solveTSP.h"
 #include "findMaxCurvature.h"
 
@@ -38,6 +39,7 @@ public:
     std::vector<QPointF> controlPoint;
     QColor color;
     QPainterPath curve;
+    double maxCurvature;
     double cost;
 
     void sortByTSP();
@@ -45,11 +47,11 @@ public:
     void generateCurve();
 
     Line() {
-        color = QColor(rand() % 128, rand() % 128, rand() % 128);
+        color = QColor(rand() % 200 + 56, rand() % 200 + 56, rand() % 200 + 56);
     }
     Line(vector<QPointF> &v) {
         point = v;
-        color = QColor(rand() % 128, rand() % 128, rand() % 128);
+        color = QColor(rand() % 200 + 56, rand() % 200 + 56, rand() % 200 + 56);
     }
 };
 
@@ -63,6 +65,8 @@ public:
 
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event); // 处理鼠标点击事件
+    void mouseMoveEvent(QMouseEvent *event);
+    void mouseReleaseEvent(QMouseEvent *event);
     void drawBezierCurve(int line_id);
 
     QPoint generateRandomPoint();
@@ -99,9 +103,22 @@ private slots:
 
     void on_lineEdit_textChanged(const QString &arg1);
 
+    void on_btnUndo_clicked();
+
+
+    void exportToFile();
+    void importFromFile();
+
+    void on_bthCP_clicked();
+
 private:
     Ui::Widget *ui;
     std::vector<Line> lines;
+
+    QMenuBar *menuBar;
+    QAction *exportAction;
+    QAction *importAction;
+    void setupMenu();
 };
 
 

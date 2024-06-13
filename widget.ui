@@ -17,9 +17,9 @@
    <property name="geometry">
     <rect>
      <x>0</x>
-     <y>0</y>
-     <width>100</width>
-     <height>291</height>
+     <y>20</y>
+     <width>121</width>
+     <height>346</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -87,6 +87,20 @@
      </widget>
     </item>
     <item>
+     <widget class="QPushButton" name="btnUndo">
+      <property name="text">
+       <string>Undo</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="bthCP">
+      <property name="text">
+       <string>Hide Control Points</string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QLabel" name="labelLineNumber">
       <property name="text">
        <string>Line Number:</string>
@@ -96,7 +110,7 @@
     <item>
      <widget class="QLabel" name="label">
       <property name="text">
-       <string>OptPara and Cost</string>
+       <string>OptPara:</string>
       </property>
      </widget>
     </item>
@@ -108,9 +122,23 @@
      </widget>
     </item>
     <item>
+     <widget class="QLabel" name="labelTotalLength">
+      <property name="text">
+       <string>Length:</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="labelMaxCurvature">
+      <property name="text">
+       <string>Max Curvature:</string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QLabel" name="labelTotalCost">
       <property name="text">
-       <string/>
+       <string>Cost:</string>
       </property>
      </widget>
     </item>

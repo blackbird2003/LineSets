@@ -67,7 +67,14 @@ def optimize_control_points(mode, optPara, LP0, LP1, LP2, P0, P1, P2, P3):
         P2_opt = np.array([P2x_opt, P2y_opt])
         print("python finished", P1_opt, P2_opt)
         print(result)
-        return P1_opt[0], P1_opt[1], P2_opt[0], P2_opt[1], result.fun
+
+        k1, _ = find_max_curvature(LP0, LP1, LP2, P0)
+        k2, _ = find_max_curvature(LP1, LP2, P0, P1_opt)
+        k3, _ = find_max_curvature(LP2, P0, P1_opt, P2_opt)
+        k4, _ = find_max_curvature(P0, P1_opt, P2_opt, P3)
+        max_k = max(k1, k2, k3, k4)
+
+        return P1_opt[0], P1_opt[1], P2_opt[0], P2_opt[1], max_k
 
 
 # optimize_control_points([1, 1],[2, 2],[3, 3],[4, 4],[5, 5],[6, 6],[7, 7]);
